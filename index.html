@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>킹콩 커넥터 미니카드 기억력 게임</title>
+<style>
+  :root {
+    --bg: #0f1724;
+    --card-bg: #0b1220;
+    --accent: #10b981;
+  }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+    background: linear-gradient(180deg, var(--bg), #071022);
+    color: #e6eef6;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100vh;
+    overflow: hidden;
+    padding-top: 100px;
+  }
+  h1 {
+    font-size: 24px;
+    font-weight: 600;
+    color: #e6eef6;
+    text-shadow: 2px 2px 10px rgba(0,0,0,0.7);
+    margin-bottom: 20px;
+    text-align: center;
+  }
+  #difficultySelect {
+    margin-bottom: 20px;
+  }
+  #difficultySelect button {
+    margin: 0 5px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.2);
+    background: #0b1220;
+    color: #e6eef6;
+    cursor: pointer;
+  }
+  #gameBoard {
+    display: grid;
+    grid-gap: 16px;
+    display: none;
+    margin-top: 40px;
+  }
+  .card {
+    width: 120px;
+    height: 120px;
+    perspective: 1000px;
+    cursor: pointer;
+  }
+  .inner {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    transition: transform 0.6s;
+    transform-style: preserve-3d;
+    border-radius: 12px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+  }
+  .flipped .inner {
+    transform: rotateY(180deg);
+  }
+  .front, .back {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    backface-visibility: hidden;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    font-weight: bold;
+  }
+  .front {
+    background: var(--card-bg);
+    color: #e6eef6;
+    box-shadow: inset 0 0 12px rgba(255,255,255,0.05);
+  }
+  .back {
+    background: var(--accent);
+    transform: rotateY(180deg);
+    color: #fff;
+    background-size: cover;
+    background-position: center;
+    box-shadow: 0 4px 15px rgba(16,185,129,0.5);
+  }
+  #gameOver {
+    display: none;
+    margin-top: 20px;
+    font-size: 32px;
+    color: var(--accent);
+    text-shadow: 2px 2px 10px rgba(0,0,0,0.7);
+  }
+  #touchCount {
+    margin-top: 10px;
+    font-size: 18px;
+    color: #e6eef6;
+    display: none;
+  }
+  #logo {
+    position: absolute;
+    top: 2px;
+    right: 24px;
+    height: 160px;
+  }
+</style>
+</head>
+<body>
+
+<img id="logo" src="로고_바른에듀.png" alt="로고">
+<h1>킹콩 커넥터 미니카드 기억력 게임</h1>
+
+<div id="difficultySelect">
+  <button data-size="4">쉬움 (4칸)</button>
+  <button data-size="10">중간 (10칸)</button>
+  <button data-size="16">어려움 (16칸)</button>
+</div>
+
+<div id="gameBoard"></div>
+<div id="touchCount">터치 횟수: 0</div>
+<div id="gameOver">모든 카드를 맞췄습니다! 🎉</div>
+
+<script>
+const allImages = [
+  "001.png","002.png","003.png","004.png",
+  "005.png","006.png","007.png","008.png"
+];
+
+const board = document.getElementById('gameBoard');
+const gameOverText = document.getElementById('gameOver');
+const touchCounter = document.getElementById('touchCount');
+const difficultyButtons = document.querySelectorAll('#difficultySelect button');
+
+let cardsArray = [];
+let firstCard = null;
+let secondCard = null;
+let lockBoard = true;
+let matchedPairs = 0;
+let totalTouches = 0;
+let gridCols = 2;
+
+difficultyButtons.forEach(btn => {
+  btn.addEventListener('click', () => {
+    const size = parseInt(btn.dataset.size);
+    startGame(size);
+  });
+});
+
+function startGame(size) {
+  document.getElementById('difficultySelect').style.display = 'none';
+  board.style.display = 'grid';
+  touchCounter.style.display = 'block';
+  setupGame(size);
+}
+
+function setupGame(size) {
+  let neededImages = [];
+  if(size === 4){
+    neededImages = getRandomImages(2);
+    gridCols = 2;
+  } else if(size === 10){
+    neededImages = getRandomImages(5);
+    gridCols = 3;
+  } else if(size === 16){
+    neededImages = allImages.slice(0, 8);
+    gridCols = 4;
+  }
+
+  cardsArray = [...neededImages, ...neededImages];
+  cardsArray.sort(() => Math.random() - 0.5);
+
+  board.style.gridTemplateColumns = `repeat(${gridCols}, 1fr)`;
+  board.innerHTML = '';
+  matchedPairs = 0;
+  totalTouches = 0;
+  touchCounter.textContent = `터치 횟수: 0`;
+  gameOverText.style.display = 'none';
+  lockBoard = true;
+
+  firstCard = null;
+  secondCard = null;
+
+  createBoard();
+  showAllCards();
+}
+
+function getRandomImages(count){
+  const shuffled = [...allImages].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0,count);
+}
+
+function createBoard() {
+  cardsArray.forEach(img => {
+    const card = document.createElement('div');
+    card.classList.add('card');
+    card.dataset.image = img;
+    card.style.width = card.style.height = `120px`;
+
+    const inner = document.createElement('div');
+    inner.classList.add('inner');
+
+    const front = document.createElement('div');
+    front.classList.add('front');
+
+    const back = document.createElement('div');
+    back.classList.add('back');
+    back.style.backgroundImage = `url(${img})`;
+
+    inner.appendChild(front);
+    inner.appendChild(back);
+    card.appendChild(inner);
+    board.appendChild(card);
+
+    card.addEventListener('click', flipCard);
+  });
+}
+
+function flipCard() {
+  if(lockBoard) return;
+  if(this === firstCard) return;
+
+  this.classList.add('flipped');
+  totalTouches++;
+  touchCounter.textContent = `터치 횟수: ${totalTouches}`;
+
+  if(!firstCard) {
+    firstCard = this;
+    return;
+  }
+
+  secondCard = this;
+  lockBoard = true;
+  checkForMatch();
+}
+
+function checkForMatch() {
+  const isMatch = firstCard.dataset.image === secondCard.dataset.image;
+
+  if(isMatch) {
+    matchedPairs++;
+    firstCard.removeEventListener('click', flipCard);
+    secondCard.removeEventListener('click', flipCard);
+    resetTurn(true);
+  } else {
+    setTimeout(() => {
+      firstCard.classList.remove('flipped');
+      secondCard.classList.remove('flipped');
+      resetTurn(false);
+    }, 1000);
+  }
+}
+
+function resetTurn(matched) {
+  firstCard = null;
+  secondCard = null;
+  lockBoard = false;
+
+  if(matchedPairs === cardsArray.length/2) {
+    gameOverText.style.display = 'block';
+    document.getElementById('difficultySelect').style.display = 'block';
+  }
+}
+
+function showAllCards() {
+  const allCards = document.querySelectorAll('.card');
+  allCards.forEach(card => card.classList.add('flipped'));
+  setTimeout(() => {
+    allCards.forEach(card => card.classList.remove('flipped'));
+    lockBoard = false;
+  }, 3000);
+}
+</script>
+</body>
+</html>
